@@ -1,4 +1,3 @@
-import os
 import sys
 import time
 
@@ -7,9 +6,6 @@ from state_engine import StateEngine
 from triggers import check_triggers
 from jev_client import JevClient
 from kernel import ControlKernel, DecisionAuthority
-
-
-JEV_API_KEY = os.environ.get("TYPESAFE_API_KEY", "")
 
 
 def log(msg: str) -> None:
@@ -27,9 +23,12 @@ def main():
     state_engine = StateEngine(token_budget=200_000)
     kernel = ControlKernel(pi)
 
-    jev = JevClient(api_key=JEV_API_KEY) if JEV_API_KEY else None
-    if not jev:
-        log("WARNING: TYPESAFE_API_KEY not set, Jev decisions disabled. Triggers will log but not act.")
+    jev = JevClient()
+    health = jev.health()
+    if health and health.get("ready"):
+        log(f"Jev endpoint ready: {health.get('model')} @ {str(health.get('revision', ''))[:7]}")
+    else:
+        log("WARNING: Jev endpoint unreachable, decisions default to rule.")
 
     last_fired_at = 0.0
     cooldown_seconds = 10.0
@@ -84,10 +83,9 @@ def main():
         if jev:
             result = jev.ask_continue(mss)
             if result:
-                log(f"JEV RESULT: {result}")
-                answer = result.get("answers", {}).get("control_decision", {})
-                jev_action = answer.get("choice", "CONTINUE")
-                jev_confidence = answer.get("confidence", 0.0)
+                log(f"JEV RESULT: {result['choice']} (conf {result['confidence']:.3f})")
+                jev_action = result.get("choice", "CONTINUE")
+                jev_confidence = result.get("confidence", 0.0)
             else:
                 log("Jev API call failed, defaulting to rule.")
 

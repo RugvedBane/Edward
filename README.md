@@ -118,11 +118,10 @@ Silent corruption — the agent writes 15 files in a row without running any tes
 
 ```bash
 # Install
-pip install typesafe-sdk  # or use raw HTTP
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 
-# Set your Jev API key
-export TYPESAFE_API_KEY=your_key_here
+# Jev decisions hit an internal scoring endpoint (LAN only, no auth):
+#   http://192.168.2.51:8000  — GET /health, POST /v1/score (Qwen/Qwen3.5-4B)
 
 # Run a task through the control plane
 python main.py "Fix the bug in utils.py so that the test passes"
@@ -149,7 +148,7 @@ pi_client.py          Spawn pi --mode rpc, read JSONL event stream
 canonical_events.py   Normalize Pi/Codex/custom events to canonical schema
 state_engine.py       Materialize AgentState from event stream
 triggers.py           8 trigger rules (FROZEN config)
-jev_client.py         TypeSafe Jev API client
+jev_client.py         Jev decision client (local /v1/score endpoint, Qwen3.5-4B)
 kernel.py             Decision authority hierarchy, action executor
 main.py               End-to-end: spawn agent, monitor, intervene
 benchmark.py          300-trial held-out benchmark

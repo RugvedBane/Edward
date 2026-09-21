@@ -305,7 +305,7 @@ def run_controller_ablation(n_trials: int = 30) -> dict:
     print("=" * 80)
 
     from jev_client import JevClient
-    jev = JevClient(api_key="REDACTED_TYPESAFE_KEY")
+    jev = JevClient()
 
     rng = random.Random(ROBUST_SEED)
     results = {}
@@ -329,8 +329,7 @@ def run_controller_ablation(n_trials: int = 30) -> dict:
                     mss = se.state.to_mss()
                     result = jev.ask_continue(mss)
                     if result:
-                        answer = result.get("answers", {}).get("control_decision", {})
-                        choice = answer.get("choice", "CONTINUE")
+                        choice = result.get("choice", "CONTINUE")
                         if choice in ("PAUSE", "CANCEL", "ESCALATE"):
                             jev_confirmed += 1
                         else:
