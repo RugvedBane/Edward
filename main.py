@@ -81,7 +81,7 @@ def main():
         jev_action = None
         jev_confidence = 0.0
         if jev:
-            result = jev.ask_continue(mss)
+            result = jev.ask_continue(mss, trigger.reason)
             if result:
                 log(f"JEV RESULT: {result['choice']} (conf {result['confidence']:.3f})")
                 jev_action = result.get("choice", "CONTINUE")

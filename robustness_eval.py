@@ -327,7 +327,7 @@ def run_controller_ablation(n_trials: int = 30) -> dict:
                 if trigger:
                     rule_fired += 1
                     mss = se.state.to_mss()
-                    result = jev.ask_continue(mss)
+                    result = jev.ask_continue(mss, trigger.reason)
                     if result:
                         choice = result.get("choice", "CONTINUE")
                         if choice in ("PAUSE", "CANCEL", "ESCALATE"):

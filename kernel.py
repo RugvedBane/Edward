@@ -30,6 +30,9 @@ class ControlKernel:
         elif jev_confidence < 0.5:
             action = rule_action
             source = f"rule (jev conf {jev_confidence:.2f} < 0.5)"
+        elif jev_action == "CONTINUE" and rule_action != "CONTINUE":
+            action = rule_action
+            source = f"rule (jev said CONTINUE at conf {jev_confidence:.2f}; disagreement -> conservative)"
         else:
             action = jev_action
             source = f"jev (conf {jev_confidence:.2f})"

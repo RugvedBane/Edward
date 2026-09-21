@@ -34,12 +34,11 @@ class JevClient:
         except Exception:
             return None
 
-    def ask_continue(self, mss: dict) -> Optional[dict]:
-        return self._score(
-            mss,
-            "Based on the agent state, should the agent continue executing its current task?",
-            CONTINUE_OPTIONS,
-        )
+    def ask_continue(self, mss: dict, trigger_reason: str = "") -> Optional[dict]:
+        question = "Based on the agent state, should the agent continue executing its current task?"
+        if trigger_reason:
+            question = f"The external control plane fired a deterministic trigger: {trigger_reason}. Given this and the agent state, should the agent continue?"
+        return self._score(mss, question, CONTINUE_OPTIONS)
 
     def ask_permission(self, mss: dict) -> Optional[dict]:
         return self._score(

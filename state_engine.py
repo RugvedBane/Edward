@@ -129,6 +129,7 @@ DANGEROUS_PATTERNS = [
 class StateEngine:
     def __init__(self, token_budget: int = 200_000):
         self.state = AgentState(token_budget=token_budget)
+        self._pending_args: dict[str, dict] = {}
 
     def process_event(self, event: dict) -> None:
         event_type = event.get("type", "")
@@ -157,6 +158,9 @@ class StateEngine:
 
         elif event_type == "tool_execution_start":
             self.state.total_tool_calls += 1
+            call_id = event.get("toolCallId", "")
+            if call_id:
+                self._pending_args[call_id] = event.get("args", {})
 
         elif event_type == "tool_execution_end":
             self._handle_tool_end(event, now)
@@ -167,7 +171,7 @@ class StateEngine:
     def _handle_tool_end(self, event: dict, now: float) -> None:
         tool_name = event.get("toolName", "") or event.get("tool_name", "")
         is_error = event.get("isError", False)
-        args = event.get("args", {})
+        args = event.get("args") or self._pending_args.pop(event.get("toolCallId", ""), {})
 
         from canonical_events import resolve_capability
         capability = resolve_capability(tool_name)
