@@ -442,7 +442,8 @@ def _eval_stepshield(args) -> int:
                 pass  # JevClient appends /v1/score itself
         try:
             suite = evaluate_mode(trajectories, args.policy or "balanced", mode,
-                                  scorer_base_url=scorer_url, log=log_line)
+                                  scorer_base_url=scorer_url, log=log_line,
+                                  confirm_mode=getattr(args, "confirm", "asymmetric"))
         except (RuntimeError, ValueError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return EXIT_ERROR
@@ -567,6 +568,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_eval.add_argument("--data", help="StepShield data dir (for --suite stepshield)")
     p_eval.add_argument("--mode", default="rules", choices=["rules", "contract", "both"],
                         help="detector mode for stepshield suite")
+    p_eval.add_argument("--confirm", default="asymmetric", choices=["single", "asymmetric"],
+                        help="contract confirmation strategy (default asymmetric)")
     p_eval.add_argument("--limit", type=int, help="evaluate only the first N trajectories")
     p_eval.add_argument("--show-mechanisms", action="store_true", help="list per-trajectory detections")
 
