@@ -1,6 +1,6 @@
 """edward — external control plane for AI coding agents."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .config import Policy, PolicyError, load_policy  # noqa: F401
 from .engine import ControlPlane, Decision  # noqa: F401

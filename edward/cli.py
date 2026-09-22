@@ -494,6 +494,10 @@ def cmd_audit(args) -> int:
         if s["cost_usd_at_intervention"]:
             total = sum(s['cost_usd_at_intervention'])
             print(f"recorded spend at interventions: ${total:.2f}")
+        if s.get("est_avoided_usd"):
+            print(f"est. avoided spend (runaway stopped before budget cap): "
+                  f"${s['est_avoided_usd']:.2f} "
+                  f"[model: burn-to-budget continuation; incident blocks excluded]")
     if s["first_ts"]:
         print(f"window: {s['first_ts']} .. {s['last_ts']}")
     return EXIT_OK

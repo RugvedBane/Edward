@@ -145,7 +145,8 @@ class TestAudit(unittest.TestCase):
             log = AuditLog(path)
             log.session_start("s1", "balanced", ["pi", "task"])
             log.intervention("s1", "loop", "should_continue", "PAUSE", "rule",
-                             "soft_decision", {"token_usage": 900, "cost_usd": 0.02})
+                             "soft_decision", {"token_usage": 900, "cost_usd": 0.02},
+                             est_avoided_usd=0.60)
             log.session_end("s1", "exit 75", 75)
             recs = read_events(path)
             self.assertEqual(len(recs), 3)
@@ -154,6 +155,7 @@ class TestAudit(unittest.TestCase):
             self.assertEqual(s["interventions"], 1)
             self.assertEqual(s["sessions"], 1)
             self.assertEqual(s["by_action"], {"PAUSE": 1})
+            self.assertAlmostEqual(s["est_avoided_usd"], 0.60)
 
     def test_degrades_on_bad_path(self):
         log = AuditLog("/proc/definitely/not/writable/audit.jsonl")
@@ -226,6 +228,8 @@ class TestControlPlane(unittest.TestCase):
             recs = read_events(os.path.join(td, "a.jsonl"))
             self.assertEqual(recs[-1]["type"], "intervention")
             self.assertEqual(recs[-1]["action"], "PAUSE")
+            est = recs[-1]["est_avoided_usd"]
+            self.assertAlmostEqual(est, 200_000 / 1_000_000 * 3.0, places=3)
 
     def test_dangerous_is_hard_constraint_no_scorer(self):
         scorer = FakeScorer(choice="CONTINUE", confidence=0.99)

@@ -6,10 +6,15 @@ warning (forward compatibility), bad value types raise PolicyError.
 """
 
 import json
+import os
 import sys
 import tomllib
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
+
+
+def _default_scorer_url() -> str:
+    return os.environ.get("EDWARD_SCORER_URL", "http://192.168.2.51:8000")
 
 
 TRIGGER_DEFAULTS = {
@@ -71,7 +76,7 @@ class Policy:
     allowed_paths: list = field(default_factory=list)
     session_dir: str = ""
     triggers: dict = field(default_factory=lambda: dict(TRIGGER_DEFAULTS))
-    scorer_base_url: str = "http://192.168.2.51:8000"
+    scorer_base_url: str = field(default_factory=_default_scorer_url)
     scorer_enabled: bool = True
     scorer_timeout_seconds: float = 10.0
     webhook_url: str = ""

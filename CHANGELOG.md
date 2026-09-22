@@ -3,6 +3,19 @@
 All notable changes to Edward are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is semver.
 
+## [0.1.1] - 2026-09-22
+
+### Added
+- $ saved estimation: interventions record est. avoided spend (burn-to-budget
+  model); `edward audit` aggregates it
+- `EDWARD_SCORER_URL` environment override for the scorer endpoint
+- Deployment templates for team-LAN topology (`deploy/`: Dockerfile,
+  docker-compose.yml, runbook)
+
+### Changed
+- PyPI distribution name is `edward-guard` (the `edward` name is taken);
+  brand, package import, and CLI remain `edward`
+
 ## [0.1.0] - 2026-09-22
 
 First public release.

@@ -58,10 +58,11 @@ class AuditLog:
 
     def intervention(self, session: str, trigger_reason: str, decision_type: str,
                      action: str, source: str, authority: str, mss: dict,
-                     jev: dict = None) -> None:
+                     jev: dict = None, est_avoided_usd: float = None) -> None:
         self.emit("intervention", session=session, trigger_reason=trigger_reason,
                   decision_type=decision_type, action=action, source=source,
-                  authority=authority, mss=mss, jev=jev or {})
+                  authority=authority, mss=mss, jev=jev or {},
+                  est_avoided_usd=est_avoided_usd)
 
     def session_end(self, session: str, reason: str, exit_code: int) -> None:
         self.emit("session_end", session=session, reason=reason, exit_code=exit_code)
@@ -73,7 +74,8 @@ def summarize(path) -> dict:
     summary = {
         "file": str(path), "sessions": 0, "interventions": 0,
         "by_action": {}, "by_decision_type": {}, "tokens_at_intervention": [],
-        "cost_usd_at_intervention": [], "first_ts": None, "last_ts": None,
+        "cost_usd_at_intervention": [], "est_avoided_usd": 0.0,
+        "first_ts": None, "last_ts": None,
     }
     sessions = set()
     if not path.exists():
@@ -104,5 +106,7 @@ def summarize(path) -> dict:
                     summary["tokens_at_intervention"].append(mss["token_usage"])
                 if mss.get("cost_usd"):
                     summary["cost_usd_at_intervention"].append(mss["cost_usd"])
+                if rec.get("est_avoided_usd") is not None:
+                    summary["est_avoided_usd"] += rec["est_avoided_usd"]
     summary["sessions"] = len(sessions)
     return summary

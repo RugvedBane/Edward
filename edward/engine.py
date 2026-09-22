@@ -110,11 +110,17 @@ class ControlPlane:
 
         self.interventions += 1
         if self.audit:
+            est_avoided_usd = None
+            if decision.decision_type == "should_continue" and self.policy.token_budget:
+                remaining = max(self.policy.token_budget - mss.get("token_usage", 0), 0)
+                est_avoided_usd = round(
+                    remaining / 1_000_000 * self.policy.token_price_usd_per_1m, 4)
             self.audit.intervention(
                 session=self.session, trigger_reason=trigger.reason,
                 decision_type=decision.decision_type, action=decision.action,
                 source=decision.source, authority=decision.authority,
                 mss=mss, jev=decision.jev or {},
+                est_avoided_usd=est_avoided_usd,
             )
         self._notify(decision)
         return decision
