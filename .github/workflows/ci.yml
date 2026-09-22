@@ -24,8 +24,8 @@ jobs:
       - name: FROZEN benchmark regression (100% / 0 FP)
         run: python benchmark.py
       - name: CLI demo gate
-        run: agentguard demo --trials 2
+        run: edward demo --trials 2
       - name: Policy presets eval
         run: |
-          agentguard eval --policy conservative --trials 10
-          agentguard eval --policy balanced --trials 10
+          edward eval --policy conservative --trials 10
+          edward eval --policy balanced --trials 10
