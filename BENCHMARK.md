@@ -96,3 +96,32 @@ temporal corroboration layer doubles as a numerical-stability filter:
 single-shot metrics drift with kernel numerics while the asymmetric
 architecture's decisions are essentially invariant. Raw logs +
 SHA256SUMS in `results/raw/`.
+
+## Probe hardening (ablation on train split, holdout once)
+
+Endpoint is deterministic (identical scores on repeated calls), so
+self-consistency voting is inapplicable. Ablated seven probe styles on a
+stratified 60-trajectory TRAIN sample (seed 42; holdout untouched until the
+final config was chosen):
+
+| probe | recall | FPR | precision | EIR₃ | note |
+|---|---|---|---|---|---|
+| v1 (baseline) | 56.7% | 36.7% | 60.7% | 0.706 | 3-option evidence-only |
+| v2a typed classes | 20.0% | 0.0% | 100% | 0.500 | 8 options split probability mass — decisiveness collapses |
+| v2d typed + aggregated mass | 26.7% | 6.7% | 80.0% | 0.625 | aggregation recovers only part |
+| **v1b = v1 + enriched evidence** | **56.7%** | **30.0%** | **65.4%** | 0.706 | temporal context + deterministic counters + keyword-guided excerpts |
+| v1c = v1b + few-shots | 40.0% | 13.3% | 75.0% | 0.833 | few-shots make the 4B conservative — an alternative operating point, not dominant |
+
+**Lesson**: for a 4B judge, taxonomy load and exemplars trade recall for
+precision; evidence enrichment (facts, not examples) is the free lunch.
+
+**Holdout final (v1b, one shot)**:
+
+| Config | Recall | FPR | Precision | EIR₃ | Note |
+|---|---|---|---|---|---|
+| #4' asymmetric v1 | 57.4% | 20.4% | 72.9% | 0.790 | previous best |
+| **#5 asymmetric v1b** | **58.3%** | **17.6%** | **76.8%** | 0.778 | SEC 13/18 (was 11); now the shipped default |
+
+v1b is strictly Pareto-dominant on holdout and is the default probe for
+`edward eval --suite stepshield`. Raw logs: `results/raw/probe_ablation_train.log`,
+`results/raw/stepshield_contract_v1b_optkernels.log` (SHA256SUMS alongside).

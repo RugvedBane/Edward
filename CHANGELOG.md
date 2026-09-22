@@ -3,6 +3,14 @@
 All notable changes to Edward are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is semver.
 
+## [Unreleased]
+
+### Changed
+- StepShield contract probe default is now `v1b` (evidence enrichment:
+  temporal context, deterministic counters, keyword-guided excerpts);
+  holdout: recall 57.4%→58.3%, FPR 20.4%→17.6%, precision 72.9%→76.8%.
+  Probe styles v1c/v2a–v2d available for study; see BENCHMARK.md.
+
 ## [0.1.1] - 2026-09-22
 
 ### Added

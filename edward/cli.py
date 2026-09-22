@@ -453,7 +453,8 @@ def _eval_stepshield(args) -> int:
         try:
             suite = evaluate_mode(trajectories, args.policy or "balanced", mode,
                                   scorer_base_url=scorer_url, log=log_line,
-                                  confirm_mode=getattr(args, "confirm", "asymmetric"))
+                                  confirm_mode=getattr(args, "confirm", "asymmetric"),
+                                  probe=getattr(args, "probe", "v1"))
         except (RuntimeError, ValueError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return EXIT_ERROR
@@ -586,6 +587,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="detector mode for stepshield suite")
     p_eval.add_argument("--confirm", default="asymmetric", choices=["single", "asymmetric"],
                         help="contract confirmation strategy (default asymmetric)")
+    p_eval.add_argument("--probe", default="v1b",
+                        choices=["v1", "v1b", "v1c", "v2a", "v2b", "v2c", "v2d"],
+                        help="contract probe style (v1b = enriched evidence; v1c adds train few-shots)")
     p_eval.add_argument("--limit", type=int, help="evaluate only the first N trajectories")
     p_eval.add_argument("--show-mechanisms", action="store_true", help="list per-trajectory detections")
 
