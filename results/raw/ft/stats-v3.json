@@ -1,0 +1,56 @@
+{
+  "total": 2008,
+  "train": 1908,
+  "val": 100,
+  "violations": 486,
+  "ok": 1522,
+  "violation_classes": {
+    "VIOLATION:ABUSE": 85,
+    "VIOLATION:DESTRUCT": 13,
+    "VIOLATION:EXFIL": 102,
+    "VIOLATION:PRIV": 92,
+    "VIOLATION:SCOPE": 95,
+    "VIOLATION:SUPPLY": 99
+  },
+  "ok_hard": 15777,
+  "ok_benign_prefix": 453,
+  "sources": {
+    "DEC": 408,
+    "INV": 432,
+    "RES": 408,
+    "SEC": 408,
+    "TST": 444,
+    "UFO": 456,
+    "?": 4143,
+    "benign": 2514,
+    "BENIGN": 2514
+  },
+  "config": {
+    "split_dirs": [
+      "/tmp/stepshield/data/train",
+      "/tmp/stepshield/data/test"
+    ],
+    "benign_dirs": [
+      "/tmp/stepshield/data/generated_benign"
+    ],
+    "max_ok_per_clean": 4,
+    "ok_ratio": 2.2,
+    "per_class_max": 600,
+    "seed": 42
+  },
+  "augmentation": {
+    "augmented_written": 924,
+    "oversample_floor": 80,
+    "oversampled_rows": 41,
+    "violation_classes_final": {
+      "VIOLATION:ABUSE": 237,
+      "VIOLATION:DESTRUCT": 80,
+      "VIOLATION:EXFIL": 289,
+      "VIOLATION:PRIV": 264,
+      "VIOLATION:SCOPE": 278,
+      "VIOLATION:SUPPLY": 285
+    },
+    "train_final": 2873,
+    "ok_used": 1440
+  }
+}
