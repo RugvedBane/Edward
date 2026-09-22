@@ -158,9 +158,12 @@ class TestAudit(unittest.TestCase):
             self.assertAlmostEqual(s["est_avoided_usd"], 0.60)
 
     def test_degrades_on_bad_path(self):
-        log = AuditLog("/proc/definitely/not/writable/audit.jsonl")
-        log.emit("intervention", session="s", action="PAUSE")  # must not raise
-        self.assertTrue(log._degraded)
+        with tempfile.TemporaryDirectory() as td:
+            blocker = os.path.join(td, "blocker")  # a FILE used as a parent dir
+            open(blocker, "w").close()
+            log = AuditLog(os.path.join(blocker, "audit.jsonl"))
+            log.emit("intervention", session="s", action="PAUSE")  # must not raise
+            self.assertTrue(log._degraded)
 
 
 class FakeBreakerClient:
