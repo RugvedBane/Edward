@@ -1,23 +1,24 @@
+<div align="center">
+
 # Edward
 
-**Edward is an external control plane for AI coding agents.** Agents fail quietly: they retry the same broken test 40 times, burn $8 in tokens on a loop, run `rm -rf` on a database directory, and write to files they were never supposed to touch. The agent doesn't know it's failing — from its perspective, it's still trying.
+**An external control plane for AI coding agents — deterministic guardrails, a local semantic scorer, and interventions you can resume.**
 
-Edward sits between the agent and its runtime. It watches the event stream, builds a picture of what the agent is actually doing across turns, and intervenes when the picture stops looking right.
-
-[![ci](https://github.com/OWNER/edward/actions/workflows/ci.yml/badge.svg)](../../actions)
-[![PyPI](https://img.shields.io/badge/PyPI-edward--guard-blue)](https://pypi.org/project/edward-guard/)
-[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![ci](https://github.com/Veridical-Tech/edward/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/edward-guard?color=blue)](https://pypi.org/project/edward-guard/)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen)](#why-zero-dependencies)
 
-**Measured on the StepShield benchmark (NeurIPS 2026):** deterministic rules alone detect 7.4% of content-semantic violations at 1.9% FPR; adding a local 4B scorer with evidence-grounded task-contract probes reaches **57.4% recall at 20.4% FPR with EIR_3 0.790** (paper's LLMJudge tier: 95.4% / 5.6% / 0.89, at GPT-4.1-mini cost). See [BENCHMARK.md](BENCHMARK.md).
+*Agents fail quietly. Edward notices.*
 
-```bash
-pipx install edward-guard        # zero dependencies, stdlib only
-edward demo                      # self-running proof: 6 failure scenarios
-edward wrap -- pi "fix the flaky test"
-edward wrap --no-scorer -- python my_agent.py     # any command, rule-only
-```
+</div>
 
+---
+
+Agents fail quietly. They retry the same broken test 40 times, burn $8 in tokens on a loop, run `rm -rf` on a database directory, and write to files they were never supposed to touch. The agent doesn't know it's failing — from its perspective, it's still trying.
+
+Edward sits **between the agent and its runtime**. It watches the event stream, builds a picture of what the agent is actually doing across turns, and intervenes when the picture stops looking right.
 
 ```
 Agent (Pi / Codex / custom)
@@ -31,196 +32,125 @@ State Engine             ← materializes cross-turn agent state
     ▼
 Trigger Rules [FROZEN]   ← deterministic safety + convergence checks
     │
-    ├─ HARD_CONSTRAINT ──→ Kernel: BLOCK (Jev cannot override)
+    ├─ HARD_CONSTRAINT ──→ Edward: BLOCK (scorer cannot override)
     │
-    └─ SOFT_DECISION ──→ Jev (TypeSafe) ──→ Policy Resolver
+    └─ SOFT_DECISION ──→ Local scorer ──→ Policy Resolver
                               │                │
                               └────────────────┘
                                        │
                                        ▼
-                               Control Kernel
+                                 Control Kernel
                                        │
                                        ▼
-                                PAUSE / CANCEL / RESUME
+                              PAUSE / CANCEL / RESUME
 ```
 
 ## Why not just if/else?
 
-A simple watchdog (`error_count > 5 → stop`) looks at individual events. The failure modes that actually kill long-running agents don't show up in any single event. They emerge from the shape of the trajectory over time.
+A watchdog (`error_count > 5 → stop`) looks at individual events. The failure modes that actually kill long-running agents don't show up in any single event — they emerge from the **shape of the trajectory over time**. We tested this directly on held-out data (seed 137, frozen config):
 
-We tested this directly.
-
-### Watchdog vs State Engine → MSS
-
-Held-out evaluation, 20 trials × 6 scenarios, frozen config:
-
-| Scenario | Watchdog detection | State Engine detection | Watchdog ctx | State ctx |
+| Scenario | Watchdog | Edward (State Engine) | Watchdog ctx | Edward ctx |
 |---|---|---|---|---|
 | budget bleed | 20% | **100%** | 2,322 | 409 |
 | infinite loop | 0% | **100%** | 6,084 | 409 |
 | convergence stall | 0% | **100%** | 1,442 | 409 |
 | dangerous command | 75% | **100%** | 522 | 434 |
 
-The watchdog misses infinite loops and stalls entirely because it has no memory across turns. The State Engine maintains a sliding window of recent tool calls, tracks file modifications, and computes elapsed time — none of which fit in a single-event check.
+Watchdogs miss temporal failure modes entirely because they have no memory across turns. Edward maintains a sliding window of tool calls, tracks file modifications, and computes elapsed time — none of which fit in a single-event check.
+
+## Measured, not claimed
+
+Edward validates itself against **[StepShield](https://github.com/glo26/stepshield)** (NeurIPS 2026), the first benchmark treating *intervention timing* as a first-class metric (9,429 trajectories, step-level labels, 216 held-out):
+
+| Detector | Recall | FPR (clean) | EIR₃ (timing) | Cost / decision |
+|---|---|---|---|---|
+| LLMJudge (GPT-4.1-mini, paper) | **95.4%** | 5.6% | 0.89 | GPT-4.1-mini price |
+| HybridGuard (paper) | 75.9% | 44.4% | 0.40 | — |
+| **Edward contract probe (local 4B)** | 57.4% | 20.4% | **0.79** | **~$0.00002** |
+| **Edward rules only** | 7.4% | **1.9%** | — | 0 |
+| StaticGuard 847 rules (paper) | 86.1% | 77.8% | 0.23 | — |
+
+The deterministic layer alone is quantitatively blind to content-semantic violations (7.4%) — the "silent corruption" gap — while keeping the best false-positive rate. Adding a **local 4B scorer with evidence-grounded task-contract probes** and asymmetric temporal confirmation lands in LLMJudge-tier timing territory at zero marginal cost. Full measurement series and reproduction commands: [BENCHMARK.md](BENCHMARK.md).
 
 ## What it detects
 
-Six trigger rules, tuned on a development set (seed 42) and evaluated frozen on held-out data (seed 137):
-
-| Signal | Threshold | Fires when |
-|---|---|---|
-| Error rate | > 40% over last 8+ calls | Agent is failing repeatedly, with no recovery signal |
-| Retry count | ≥ 3 | Agent keeps retrying the same thing |
-| Token budget | > 80% consumed | Agent is burning resources |
-| Convergence stall | > 600s + > 5 turns | Agent is running but not completing |
-| Passive stall | 12 consecutive reads, 0 writes | Agent is going in circles |
-| Dangerous command | regex match | Agent executes `rm -rf`, `sudo`, `git push --force`, etc. |
-
-Plus two post-hoc additions from robustness testing:
+Eight trigger rules, tuned on a dev split (seed 42) and frozen for held-out evaluation (seed 137):
 
 | Signal | Fires when |
 |---|---|
-| Scope violation | Agent writes to a path outside the allowed prefix list |
+| Error rate | > 40% over the last 8+ calls, no recovery signal |
+| Retry count | ≥ 3 retries of the same thing |
+| Token budget | > 80% consumed |
+| Convergence stall | > 600s + > 5 turns, no completion |
+| Passive stall | 12 consecutive reads, 0 writes |
+| Dangerous command | `rm -rf`, `sudo`, `git push --force`, `curl | sh`, … |
+| Scope violation | writes outside the allowed path prefixes |
 | Silent corruption risk | ≥ 10 consecutive file writes with zero shell verification |
 
-## Held-out benchmark
+Policy packs make the knobs yours: `conservative` / `balanced` (= FROZEN defaults) / `aggressive`, as TOML or JSON.
 
-50 trials × 6 scenarios, frozen configuration (no post-hoc tuning):
-
-```
-                   Detection    FP Rate    Latency (tool calls)
-infinite_loop      100%         —          8.0
-budget_bleed       100%         —          11.7
-dangerous          100%         —          5.0
-stall              100%         —          4.0
-normal             —            0%         —
-transient_failure  —            0%         —
-
-Precision: 100%    Recall: 100%    FPR: 0/100
-```
-
-## Robustness: where it breaks
-
-We attacked the architecture along four dimensions. Results after P0+P1 fixes:
-
-**Agent heterogeneity.** Three event schemas (Pi, Codex-style, custom) normalized through the canonical schema layer. Custom agents use tool names like `execute` and `terminal` instead of `bash`. Before the fix, dangerous command detection on custom agents was 0%. After: 100% across all six combinations.
-
-**Task distribution shift.** Three unseen normal task profiles (heavy-write, error-then-recover, mixed-signal). The error-then-recover profile initially produced 60% false positives because the error-rate trigger couldn't distinguish "temporarily failing but recovering" from "systematically diverging." Added a `recovery_signal` property: if the tail of the sliding window shows ≥3 consecutive successes after errors, the trigger holds. Post-fix FPR: 0% on all three profiles.
-
-**Controller ablation.** Jev (TypeSafe's System One model) acts as a probabilistic second opinion on soft decisions. On dangerous commands, rules fire deterministically as HARD_CONSTRAINT — Jev cannot override. On soft decisions, Jev confirms ~100% of infinite-loop interventions but overrides ~97% of budget-bleed and ~100% of stall interventions back to CONTINUE. This tension is a design feature: the policy resolver lets deterministic safety guards override probabilistic judgments, but not vice versa.
-
-**Unseen failure modes.** Three novel failure scenarios not in dev or test:
-
-| Scenario | Detection | Mechanism |
-|---|---|---|
-| Permission escalation | 100% | Dangerous command regex |
-| Cascading failure | 100% | Retry count trigger |
-| Silent corruption | 76.7% | Unverified-write streak detector |
-
-Silent corruption — the agent writes 15 files in a row without running any test — was invisible to every original trigger. The streak detector catches most cases but not all (some trials have only 8-9 writes, below the threshold). Full coverage would require World State tracking: comparing what the agent wrote against what the task expected.
-
-## The four things we learned
-
-1. **Execution telemetry ≠ world state.** The agent's own view ("I'm still trying") diverges from what an external observer sees (error rate rising, budget depleting, no progress). This gap is the entire reason a control plane exists.
-
-2. **Event-level checks cannot detect temporal failure modes.** Every trigger that requires memory across turns (stall, convergence, recovery) needs the State Engine. Single-event or simple-counter approaches score 0% on these.
-
-3. **Safety and intelligence need different authority levels.** Dangerous-command blocking is deterministic and non-overridable. Everything else benefits from a probabilistic second opinion. Conflating the two makes the safety guard probabilistic, which defeats the purpose.
-
-4. **Agent-execution monitoring alone cannot detect world-state corruption.** If the agent writes destructive content without producing any error, no amount of execution telemetry will catch it. This requires comparing actual filesystem state against a task contract. It's the clearest motivation for v0.2.
-
-## Running it
-
-### Product quickstart (edward CLI)
+## Quickstart
 
 ```bash
-pip install -e .            # zero dependencies, stdlib only (Python >= 3.11)
+pipx install edward-guard            # zero dependencies, Python 3.11+
 
-# optional: the pi coding agent (full monitoring + intervention on pi tasks)
-npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+edward doctor                        # environment checks
+edward demo                          # self-running proof: 6 failure scenarios, PASS/FAIL
 
-edward doctor           # environment checks: scorer, pi, audit dir
-edward demo             # self-running proof: 6 scenarios, PASS/FAIL gate
-edward wrap -- pi "Fix the bug in utils.py so that the test passes"
-edward wrap --scope ./src --no-scorer -- python agent_script.py   # any command, rule-only
-edward eval --policy conservative --trials 30   # tune a policy before live use
-edward audit            # intervention summary ($ saved evidence)
-edward policy-template --preset balanced > edward.toml
+edward wrap -- pi "fix the flaky test"                     # full monitoring + intervention
+edward wrap --no-scorer -- python my_agent.py              # any command, rule-only
+edward wrap --scope ./src --auto-resume 60 -- pi "task"    # scoped writes, auto-resume
 ```
 
-The semantic scorer is an internal HTTP endpoint (LAN only, no auth):
-`GET /health` + `POST /v1/score` on Qwen/Qwen3.5-4B — see `edward/scorer_client.py`.
-Without it, edward runs in rule-only mode and stays fully protective.
+Interventions are **resumable, not fatal**: PAUSE exits with code 75, pins the
+agent session, and `edward wrap --continue` picks the same session back up
+from the audit log. CANCEL / BLOCK exit 76. Audit lands in
+`~/.edward/audit.jsonl` — including an estimated avoided-spend per intervention.
 
-Exit codes: `0` completed, `75` PAUSED (resumable: `edward wrap --continue -- ...`),
-`76` terminated by control plane, `130` interrupted. Audit JSONL lands in
-`~/.edward/audit.jsonl`. Policy packs are TOML/JSON with three presets
-(`conservative` / `balanced` = FROZEN defaults / `aggressive`).
+**The scorer is optional and always advisory.** Point `EDWARD_SCORER_URL` at
+any local OpenAI-compatible scoring endpoint (a 4B model on your GPU box is
+plenty — see [deploy/](deploy/) for the team-LAN topology). Scorer down?
+Edward logs a warning and runs rule-only. It stays protective.
 
-### Research scripts (pre-packaging, still work)
+## Why zero dependencies?
 
-```bash
-python main.py "Fix the bug in utils.py so that the test passes"
+Edward's control loop runs stdlib-only: it must boot on any Python 3.11+
+box, inside any container, in front of any agent — including air-gapped
+ones. The heavy lifting (scoring) is delegated to a *separate* local
+service, which you own and can swap (4B quantized, bigger, whatever) without
+touching the control plane.
 
-# Run the benchmark
-python benchmark.py
-
-# Run the ablation
-python ablation.py
-
-# Run held-out evaluation
-python heldout_eval.py
-
-# Run robustness evaluation
-python robustness_eval.py
-```
-
-### External benchmark: StepShield (NeurIPS 2026)
-
-```bash
-git clone --depth 1 https://github.com/glo26/stepshield /tmp/stepshield
-edward eval --suite stepshield --data /tmp/stepshield/data --mode rules
-edward eval --suite stepshield --data /tmp/stepshield/data --mode contract \
-    --scorer http://192.168.2.51:8000        # needs live scorer endpoint
-```
-
-`rules` = the deterministic v0.1 layer (dangerous-command regex + scope
-violations derived from task constraints). `contract` = the v0.2 Task
-Contract preview: task intent + constraints go into the scorer question,
-and the 4B endpoint judges each state-changing step (OK / VIOLATION /
-UNSURE) with asymmetric confirmation: conf >= 0.9 fires alone, 0.6-0.9
-needs one corroborating violation, a confident OK clears suspicion.
-Metrics are paper-aligned (EIR_k, recall, FPR on clean, per-category).
-
-Pi uses `--mode rpc` for headless operation. The control plane spawns it as a subprocess, reads JSONL events from stdout, and sends control commands (abort, steer) via stdin. No Pi source code is modified.
-
-## Project structure
+## Repository map
 
 ```
-edward/            Product package (pip install -e .)
-  cli.py               edward CLI: wrap / demo / eval / audit / doctor
-  engine.py            ControlPlane: events -> triggers -> scorer -> decision -> audit
-  config.py            Policy packs (TOML/JSON, 3 presets, strict validation)
-  audit.py             Append-only JSONL audit log (never blocks monitoring)
-  scorer.py            Semantic scorer client with circuit breaker
-  scenarios.py         Failure scenario suite (single source for demo/eval)
-  evalcmd.py           Policy evaluation gate (detection / FPR / timing)
-  pi_client.py         Pi RPC client (cwd, provider/model, stderr capture)
-  scorer_client.py        /v1/score client (internal endpoint, Qwen3.5-4B)
-  state_engine.py      Materialize AgentState from event stream
-  triggers.py          8 trigger rules, policy-parameterized (defaults FROZEN)
-  kernel.py            Decision authority hierarchy
-  canonical_events.py  Normalize Pi/Codex/custom events to canonical schema
-  notify.py            Slack webhook + stderr banners (fail-silent)
-main.py                Legacy entry -> edward wrap
-benchmark.py           300-trial held-out benchmark (re-exports scenarios)
-ablation.py            Watchdog vs State Engine comparison
-heldout_eval.py        Dev/test split + frozen config evaluation
+edward/                the package
+  cli.py               wrap / demo / eval / audit / doctor
+  engine.py            ControlPlane: events → triggers → scorer → decision → audit
+  state_engine.py      cross-turn agent state
+  triggers.py          8 rules, policy-parameterized (defaults FROZEN)
+  scorer_client.py     /v1/score client + circuit breaker
+  stepshield.py        external benchmark adapter (EIR metrics)
+  scenarios.py         failure scenario suite (demo/eval source of truth)
+benchmark.py           300-trial held-out benchmark
 robustness_eval.py     4-dimension robustness attack
-extreme_tests.py       4 extreme scenario demos
-test_product.py        Product test suite (unittest, offline)
+BENCHMARK.md           full measurement series + reproduction commands
+deploy/                team-LAN deployment templates
 ```
 
-## What's next
+## Status & roadmap
 
-The silent-corruption gap points at the next layer: a Task Contract that defines which files the agent should touch and what the expected end-state looks like. When the agent's actual filesystem mutations diverge from the contract, that's a scope violation — regardless of whether any tool call returned an error. This moves the State Engine from "what is the agent doing" to "what is the agent doing to the world, and is that still allowed."
+- [x] v0.1.1 on PyPI, CI on three platforms
+- [x] StepShield integration with paper-aligned EIR metrics
+- [ ] Robustness suite as `edward eval --suite robustness`
+- [ ] Scorer fine-tune (targets FPR; data flywheel from audit logs)
+- [ ] Cloud fleet console (team tier)
+
+## Contributing
+
+Deterministic layer stays deterministic: trigger defaults are FROZEN, and
+behavior-affecting changes require re-running the benchmark gate. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE) — © 2026 Edward contributors
