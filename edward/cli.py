@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Optional
 
 from .audit import AuditLog, summarize
-from .config import load_policy, policy_toml
+from .config import Policy, load_policy, policy_toml
 from .engine import RESUMABLE_ACTIONS, ControlPlane
 from .notify import notify_stderr
 from .pi_client import PiRpcClient
