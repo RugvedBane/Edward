@@ -4,7 +4,7 @@
 
 **An external control plane for AI coding agents — deterministic guardrails, a local semantic scorer, and interventions you can resume.**
 
-[![ci](https://github.com/Veridical-Tech/edward/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/VeridicalTech/Edward/ci.yml?branch=main&label=CI&logo=github)](https://github.com/VeridicalTech/Edward/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/edward-guard?color=blue)](https://pypi.org/project/edward-guard/)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
