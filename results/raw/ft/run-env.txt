@@ -1,0 +1,20 @@
+2026-09-22T15:47:11+08:00
+base=Qwen/Qwen3.5-4B snapshot 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a (local, identical to served model)
+torch=2.10.0+cu128
+transformers=5.17.0
+peft=0.21.0 accelerate=1.12.0
+flash-linear-attention=0.5.2 fla-core=0.5.2 causal-conv1d=1.7.0 (matches server kernel_profile)
+data=lora/data stats sha256: 3aa3569bf0f631e2ec66ecda3f3f752827fbce04351d5e1c1b11a82521d0b163
+train_sft sha256: f5c24df1bc8f5e3c4c24941497296fedc6ad2da1fc3aa0bae086992b4fe26511
+val_sft sha256: a8cb5a1e8b4623d498f50942b37a4c295d5beb36418eec7ae7d2c407f029c1ad
+hardware=RTX 3080 10GB; adaptation: --gradient-checkpointing --per-device-bs 2 --grad-accum 16 (effective batch 32 unchanged)
+final_flags=--gradient-checkpointing --tail-loss --per-device-bs 1 --grad-accum 32
+tail_loss_note=CE on last (completion+1) positions via logits_to_keep; ==full CE with ignore_index up to <=1e-6 fp32 reduction-order diff (unit-tested)
+patch_notes=transformers 5.17 compat: warmup_ratio->warmup_steps; apply_chat_template(tokenize=True) returns Encoding -> render text + encode(add_special_tokens=False)
+=== Option-A rebuild 2026-09-22T18:01:58+08:00 ===
+parity_fix=training now renders through semif_phase1 direct_messages/encode_prompt (same code path as /v1/score server); supervision = gold option-letter token at readout position; enable_thinking=False
+dataset_rebuild=prepare_dataset --max-ok-per-clean 2 --seed 42; stats byte-identical to v1; rows gained "state" (serving state dict); backups in /tmp/opencode/*.v1.*
+len_scan=1911 rows: min=456 p50=529 p95=697 p99=847 max=1767 (max-len 2048 unchanged, no truncation)
+loss_note=loss dicts delayed by stdout block buffering; progress bar (stderr) is realtime; authoritative numbers in checkpoint-100/trainer_state.json and final trainer_state
+7a7c82d412c4b54db519f7a3be5a7bea2d04656139ebe2be0dffa5d8d74b19b8  lora/data/train_sft.jsonl
+ba235178c6ababa83541d9e3865adbdf0dbc12112eb17c9a7759861059b31ab1  lora/data/val_sft.jsonl
