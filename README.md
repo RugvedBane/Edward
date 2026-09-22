@@ -116,14 +116,35 @@ Silent corruption — the agent writes 15 files in a row without running any tes
 
 ## Running it
 
+### Product quickstart (agentguard CLI)
+
 ```bash
-# Install
+pip install -e .            # zero dependencies, stdlib only (Python >= 3.11)
+
+# optional: the pi coding agent (full monitoring + intervention on pi tasks)
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 
-# Jev decisions hit an internal scoring endpoint (LAN only, no auth):
-#   http://192.168.2.51:8000  — GET /health, POST /v1/score (Qwen/Qwen3.5-4B)
+agentguard doctor           # environment checks: scorer, pi, audit dir
+agentguard demo             # self-running proof: 6 scenarios, PASS/FAIL gate
+agentguard wrap -- pi "Fix the bug in utils.py so that the test passes"
+agentguard wrap --scope ./src --no-scorer -- python agent_script.py   # any command, rule-only
+agentguard eval --policy conservative --trials 30   # tune a policy before live use
+agentguard audit            # intervention summary ($ saved evidence)
+agentguard policy-template --preset balanced > agentguard.toml
+```
 
-# Run a task through the control plane
+The semantic scorer is an internal HTTP endpoint (LAN only, no auth):
+`GET /health` + `POST /v1/score` on Qwen/Qwen3.5-4B — see `agentguard/jev_client.py`.
+Without it, agentguard runs in rule-only mode and stays fully protective.
+
+Exit codes: `0` completed, `75` PAUSED (resumable: `agentguard wrap --continue -- ...`),
+`76` terminated by control plane, `130` interrupted. Audit JSONL lands in
+`~/.agentguard/audit.jsonl`. Policy packs are TOML/JSON with three presets
+(`conservative` / `balanced` = FROZEN defaults / `aggressive`).
+
+### Research scripts (pre-packaging, still work)
+
+```bash
 python main.py "Fix the bug in utils.py so that the test passes"
 
 # Run the benchmark
@@ -144,18 +165,28 @@ Pi uses `--mode rpc` for headless operation. The control plane spawns it as a su
 ## Project structure
 
 ```
-pi_client.py          Spawn pi --mode rpc, read JSONL event stream
-canonical_events.py   Normalize Pi/Codex/custom events to canonical schema
-state_engine.py       Materialize AgentState from event stream
-triggers.py           8 trigger rules (FROZEN config)
-jev_client.py         Jev decision client (local /v1/score endpoint, Qwen3.5-4B)
-kernel.py             Decision authority hierarchy, action executor
-main.py               End-to-end: spawn agent, monitor, intervene
-benchmark.py          300-trial held-out benchmark
-ablation.py           Watchdog vs State Engine comparison
-heldout_eval.py       Dev/test split + frozen config evaluation
-robustness_eval.py    4-dimension robustness attack
-extreme_tests.py      4 extreme scenario demos
+agentguard/            Product package (pip install -e .)
+  cli.py               agentguard CLI: wrap / demo / eval / audit / doctor
+  engine.py            ControlPlane: events -> triggers -> scorer -> decision -> audit
+  config.py            Policy packs (TOML/JSON, 3 presets, strict validation)
+  audit.py             Append-only JSONL audit log (never blocks monitoring)
+  scorer.py            Semantic scorer client with circuit breaker
+  scenarios.py         Failure scenario suite (single source for demo/eval)
+  evalcmd.py           Policy evaluation gate (detection / FPR / timing)
+  pi_client.py         Pi RPC client (cwd, provider/model, stderr capture)
+  jev_client.py        /v1/score client (internal endpoint, Qwen3.5-4B)
+  state_engine.py      Materialize AgentState from event stream
+  triggers.py          8 trigger rules, policy-parameterized (defaults FROZEN)
+  kernel.py            Decision authority hierarchy
+  canonical_events.py  Normalize Pi/Codex/custom events to canonical schema
+  notify.py            Slack webhook + stderr banners (fail-silent)
+main.py                Legacy entry -> agentguard wrap
+benchmark.py           300-trial held-out benchmark (re-exports scenarios)
+ablation.py            Watchdog vs State Engine comparison
+heldout_eval.py        Dev/test split + frozen config evaluation
+robustness_eval.py     4-dimension robustness attack
+extreme_tests.py       4 extreme scenario demos
+test_product.py        Product test suite (unittest, offline)
 ```
 
 ## What's next

@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.11", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install (editable)
+        run: python -m pip install -e . --no-build-isolation
+      - name: Unit tests
+        run: python -m unittest test_product -v
+      - name: FROZEN benchmark regression (100% / 0 FP)
+        run: python benchmark.py
+      - name: CLI demo gate
+        run: agentguard demo --trials 2
+      - name: Policy presets eval
+        run: |
+          agentguard eval --policy conservative --trials 10
+          agentguard eval --policy balanced --trials 10
