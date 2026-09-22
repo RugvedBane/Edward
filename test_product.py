@@ -1,4 +1,4 @@
-"""Product test suite for the agentguard package (offline, stdlib unittest).
+"""Product test suite for the edward package (offline, stdlib unittest).
 
 Run: python3 -m unittest test_product -v
 Covers: policy loading/validation, FROZEN regression, audit, circuit
@@ -15,20 +15,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from agentguard.audit import AuditLog, summarize
-from agentguard.config import PolicyError, TRIGGER_DEFAULTS, load_policy, policy_toml
-from agentguard.engine import ControlPlane
-from agentguard.cli import (_extract_pi_prompt, _split_cmd, build_pi_command,
-                            _cmd_for_resume, EXIT_PAUSED, EXIT_TERMINATED)
-from agentguard.scorer import Scorer
-from agentguard.triggers import check_triggers
-from agentguard.state_engine import StateEngine
-from agentguard.scenarios import SCENARIOS, run_trial
-from agentguard.evalcmd import eval_policy, verdict
+from edward.audit import AuditLog, summarize
+from edward.config import PolicyError, TRIGGER_DEFAULTS, load_policy, policy_toml
+from edward.engine import ControlPlane
+from edward.cli import (_extract_pi_prompt, _last_paused_session, _split_cmd,
+                            build_pi_command, EXIT_PAUSED, EXIT_TERMINATED)
+from edward.scorer import Scorer
+from edward.triggers import check_triggers
+from edward.state_engine import StateEngine
+from edward.scenarios import SCENARIOS, run_trial
+from edward.evalcmd import eval_policy, verdict
 
 
 def quiet_policy(**overrides):
-    from agentguard.config import load_policy as lp
+    from edward.config import load_policy as lp
     p = lp("balanced")
     p.stderr_banner = False
     for k, v in overrides.items():
@@ -298,19 +298,19 @@ class TestCliHelpers(unittest.TestCase):
         self.assertEqual(pre, ["wrap", "--policy", "balanced"])
         self.assertEqual(cmd, ["pi", "task"])
 
-    def test_build_pi_command_fresh(self):
-        c = build_pi_command(["pi", "do it"], session_id="abc", resumable=False, fresh_session=True)
+    def test_build_pi_command_ephemeral(self):
+        c = build_pi_command(["pi", "do it"], session_id="abc", ephemeral=True)
         self.assertIn("--mode", c)
         self.assertIn("--no-session", c)
         self.assertNotIn("--session-id", c)
 
-    def test_build_pi_command_resumable(self):
-        c = build_pi_command(["pi", "do it"], session_id="abc", resumable=True, fresh_session=False)
+    def test_build_pi_command_pinned_by_default(self):
+        c = build_pi_command(["pi", "do it"], session_id="abc")
         self.assertNotIn("--no-session", c)
-        self.assertIn("agentguard-abc", c)
+        self.assertIn("edward-abc", c)
 
     def test_build_pi_command_keeps_explicit_mode(self):
-        c = build_pi_command(["pi", "--mode", "rpc", "x"], "abc", False, True)
+        c = build_pi_command(["pi", "--mode", "rpc", "x"], session_id="abc", ephemeral=True)
         self.assertEqual(c.count("--mode"), 1)
 
     def test_extract_pi_prompt(self):
@@ -318,11 +318,18 @@ class TestCliHelpers(unittest.TestCase):
                                      "--no-session", "fix", "the", "bug"])
         self.assertEqual(prompt, "fix the bug")
 
-    def test_resume_cmd(self):
-        c = _cmd_for_resume(["pi", "--mode", "rpc"], "abc")
-        self.assertIn("--continue", c)
-        self.assertIn("agentguard-abc", c)
-        self.assertIsNone(_cmd_for_resume(["python", "x"], "abc"))
+    def test_last_paused_session(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "a.jsonl")
+            from edward.audit import AuditLog
+            log = AuditLog(path)
+            log.session_end("s1", "exit 0", 0)
+            log.session_end("s2", "exit 75", 75)
+            log.session_end("s3", "exit 0", 0)
+            log.session_end("s4", "exit 75", 75)
+            self.assertEqual(_last_paused_session(path), "s4")
+            self.assertIsNone(_last_paused_session(os.path.join(td, "missing.jsonl")))
 
     def test_exit_code_semantics(self):
         self.assertEqual(EXIT_PAUSED, 75)

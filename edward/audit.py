@@ -29,7 +29,7 @@ class AuditLog:
     def _degrade(self, msg: str) -> None:
         if not self._degraded:
             self._degraded = True
-            print(f"[agentguard] audit degraded to stderr: {msg}", file=sys.stderr)
+            print(f"[edward] audit degraded to stderr: {msg}", file=sys.stderr)
 
     def emit(self, entry_type: str, session: str = "", **fields) -> None:
         record = {
@@ -50,7 +50,7 @@ class AuditLog:
                 fh.write(line + "\n")
         except OSError as exc:
             self._degrade(f"{exc}")
-            print(f"[agentguard] audit: {line}", file=sys.stderr)
+            print(f"[edward] audit: {line}", file=sys.stderr)
 
     def session_start(self, session: str, policy_preset: str, command) -> None:
         self.emit("session_start", session=session, policy_preset=policy_preset,

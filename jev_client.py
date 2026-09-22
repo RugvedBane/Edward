@@ -1,1 +1,9 @@
-from agentguard.jev_client import CONTINUE_OPTIONS, JEV_API_URL, JevClient, PERMISSION_OPTIONS  # noqa: F401
+from edward.scorer_client import (  # noqa: F401
+    CONTINUE_OPTIONS,
+    PERMISSION_OPTIONS,
+    SCORER_API_URL,
+    ScorerClient,
+)
+
+JevClient = ScorerClient
+JEV_API_URL = SCORER_API_URL

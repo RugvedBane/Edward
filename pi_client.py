@@ -1,1 +1,1 @@
-from agentguard.pi_client import PiRpcClient  # noqa: F401
+from edward.pi_client import PiRpcClient  # noqa: F401

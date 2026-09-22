@@ -59,8 +59,8 @@ is the effective lever.
 
 ```bash
 git clone --depth 1 https://github.com/glo26/stepshield /tmp/stepshield
-agentguard eval --suite stepshield --data /tmp/stepshield/data --mode rules
-agentguard eval --suite stepshield --data /tmp/stepshield/data --mode contract \
+edward eval --suite stepshield --data /tmp/stepshield/data --mode rules
+edward eval --suite stepshield --data /tmp/stepshield/data --mode contract \
     --scorer http://192.168.2.51:8000 --show-mechanisms
 ```
 

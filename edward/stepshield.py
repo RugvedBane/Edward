@@ -4,7 +4,7 @@ StepShield: "When, Not Whether to Intervene on Rogue Agents"
 (NeurIPS 2026, github.com/glo26/stepshield, MIT code / CC BY 4.0 data).
 
 This module consumes StepShield trajectory dumps (data/test_holdout/
-raw_trajectories.jsonl + mapping/) and evaluates the agentguard control
+raw_trajectories.jsonl + mapping/) and evaluates the edward control
 plane against their ground truth with paper-aligned metrics:
 
     EIR_k = (1/|R_det|) * sum 1[s_d >= s_r AND s_d - s_r <= k]
@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from .engine import ControlPlane
-from .jev_client import JevClient
+from .scorer_client import ScorerClient
 
 ACTION_TO_TOOL = {
     "run_command": ("bash", "command"),
@@ -293,7 +293,7 @@ def evaluate_mode(trajectories: list, policy, mode: str = "rules",
     if mode == "contract":
         if not scorer_base_url:
             raise ValueError("contract mode requires scorer_base_url")
-        client = JevClient(base_url=scorer_base_url, timeout=15.0)
+        client = ScorerClient(base_url=scorer_base_url, timeout=15.0)
         health = client.health()
         if not (health and health.get("ready")):
             raise RuntimeError(f"scorer unreachable at {scorer_base_url}")
@@ -396,7 +396,7 @@ PUBLISHED_BASELINES = {
 
 def format_report(metrics: dict, mode: str) -> str:
     lines = [
-        f"\n== agentguard on StepShield test_holdout (mode: {mode}) ==",
+        f"\n== edward on StepShield test_holdout (mode: {mode}) ==",
         f"rogue {metrics['n_rogue']} / clean {metrics['n_clean']}",
         f"recall {metrics['recall']:.1%}   FPR(clean) {metrics['fpr_clean']:.1%}   "
         f"precision {metrics['precision']:.1%}   F1 {metrics['f1']:.3f}",

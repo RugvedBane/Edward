@@ -1,8 +1,23 @@
-# Agent Control Plane
+# Edward
 
-Agents fail quietly. They retry the same broken test 40 times, burn $8 in tokens on a loop, run `rm -rf` on a database directory, and write to files they were never supposed to touch. The agent doesn't know it's failing. From its perspective, it's still trying.
+**Edward is an external control plane for AI coding agents.** Agents fail quietly: they retry the same broken test 40 times, burn $8 in tokens on a loop, run `rm -rf` on a database directory, and write to files they were never supposed to touch. The agent doesn't know it's failing — from its perspective, it's still trying.
 
-This is an external control layer that sits between the agent and its runtime. It watches the event stream, builds a picture of what the agent is actually doing across turns, and intervenes when the picture stops looking right.
+Edward sits between the agent and its runtime. It watches the event stream, builds a picture of what the agent is actually doing across turns, and intervenes when the picture stops looking right.
+
+[![ci](https://github.com/OWNER/edward/actions/workflows/ci.yml/badge.svg)](../../actions)
+[![PyPI](https://img.shields.io/badge/PyPI-edward--guard-blue)](https://pypi.org/project/edward-guard/)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+
+**Measured on the StepShield benchmark (NeurIPS 2026):** deterministic rules alone detect 7.4% of content-semantic violations at 1.9% FPR; adding a local 4B scorer with evidence-grounded task-contract probes reaches **57.4% recall at 20.4% FPR with EIR_3 0.790** (paper's LLMJudge tier: 95.4% / 5.6% / 0.89, at GPT-4.1-mini cost). See [BENCHMARK.md](BENCHMARK.md).
+
+```bash
+pipx install edward-guard        # zero dependencies, stdlib only
+edward demo                      # self-running proof: 6 failure scenarios
+edward wrap -- pi "fix the flaky test"
+edward wrap --no-scorer -- python my_agent.py     # any command, rule-only
+```
+
 
 ```
 Agent (Pi / Codex / custom)
@@ -116,7 +131,7 @@ Silent corruption — the agent writes 15 files in a row without running any tes
 
 ## Running it
 
-### Product quickstart (agentguard CLI)
+### Product quickstart (edward CLI)
 
 ```bash
 pip install -e .            # zero dependencies, stdlib only (Python >= 3.11)
@@ -124,22 +139,22 @@ pip install -e .            # zero dependencies, stdlib only (Python >= 3.11)
 # optional: the pi coding agent (full monitoring + intervention on pi tasks)
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 
-agentguard doctor           # environment checks: scorer, pi, audit dir
-agentguard demo             # self-running proof: 6 scenarios, PASS/FAIL gate
-agentguard wrap -- pi "Fix the bug in utils.py so that the test passes"
-agentguard wrap --scope ./src --no-scorer -- python agent_script.py   # any command, rule-only
-agentguard eval --policy conservative --trials 30   # tune a policy before live use
-agentguard audit            # intervention summary ($ saved evidence)
-agentguard policy-template --preset balanced > agentguard.toml
+edward doctor           # environment checks: scorer, pi, audit dir
+edward demo             # self-running proof: 6 scenarios, PASS/FAIL gate
+edward wrap -- pi "Fix the bug in utils.py so that the test passes"
+edward wrap --scope ./src --no-scorer -- python agent_script.py   # any command, rule-only
+edward eval --policy conservative --trials 30   # tune a policy before live use
+edward audit            # intervention summary ($ saved evidence)
+edward policy-template --preset balanced > edward.toml
 ```
 
 The semantic scorer is an internal HTTP endpoint (LAN only, no auth):
-`GET /health` + `POST /v1/score` on Qwen/Qwen3.5-4B — see `agentguard/jev_client.py`.
-Without it, agentguard runs in rule-only mode and stays fully protective.
+`GET /health` + `POST /v1/score` on Qwen/Qwen3.5-4B — see `edward/scorer_client.py`.
+Without it, edward runs in rule-only mode and stays fully protective.
 
-Exit codes: `0` completed, `75` PAUSED (resumable: `agentguard wrap --continue -- ...`),
+Exit codes: `0` completed, `75` PAUSED (resumable: `edward wrap --continue -- ...`),
 `76` terminated by control plane, `130` interrupted. Audit JSONL lands in
-`~/.agentguard/audit.jsonl`. Policy packs are TOML/JSON with three presets
+`~/.edward/audit.jsonl`. Policy packs are TOML/JSON with three presets
 (`conservative` / `balanced` = FROZEN defaults / `aggressive`).
 
 ### Research scripts (pre-packaging, still work)
@@ -164,8 +179,8 @@ python robustness_eval.py
 
 ```bash
 git clone --depth 1 https://github.com/glo26/stepshield /tmp/stepshield
-agentguard eval --suite stepshield --data /tmp/stepshield/data --mode rules
-agentguard eval --suite stepshield --data /tmp/stepshield/data --mode contract \
+edward eval --suite stepshield --data /tmp/stepshield/data --mode rules
+edward eval --suite stepshield --data /tmp/stepshield/data --mode contract \
     --scorer http://192.168.2.51:8000        # needs live scorer endpoint
 ```
 
@@ -182,8 +197,8 @@ Pi uses `--mode rpc` for headless operation. The control plane spawns it as a su
 ## Project structure
 
 ```
-agentguard/            Product package (pip install -e .)
-  cli.py               agentguard CLI: wrap / demo / eval / audit / doctor
+edward/            Product package (pip install -e .)
+  cli.py               edward CLI: wrap / demo / eval / audit / doctor
   engine.py            ControlPlane: events -> triggers -> scorer -> decision -> audit
   config.py            Policy packs (TOML/JSON, 3 presets, strict validation)
   audit.py             Append-only JSONL audit log (never blocks monitoring)
@@ -191,13 +206,13 @@ agentguard/            Product package (pip install -e .)
   scenarios.py         Failure scenario suite (single source for demo/eval)
   evalcmd.py           Policy evaluation gate (detection / FPR / timing)
   pi_client.py         Pi RPC client (cwd, provider/model, stderr capture)
-  jev_client.py        /v1/score client (internal endpoint, Qwen3.5-4B)
+  scorer_client.py        /v1/score client (internal endpoint, Qwen3.5-4B)
   state_engine.py      Materialize AgentState from event stream
   triggers.py          8 trigger rules, policy-parameterized (defaults FROZEN)
   kernel.py            Decision authority hierarchy
   canonical_events.py  Normalize Pi/Codex/custom events to canonical schema
   notify.py            Slack webhook + stderr banners (fail-silent)
-main.py                Legacy entry -> agentguard wrap
+main.py                Legacy entry -> edward wrap
 benchmark.py           300-trial held-out benchmark (re-exports scenarios)
 ablation.py            Watchdog vs State Engine comparison
 heldout_eval.py        Dev/test split + frozen config evaluation

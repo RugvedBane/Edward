@@ -10,9 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from agentguard.stepshield import (SuiteMetrics, TrajectoryResult, derive_allowed_paths,
+from edward.stepshield import (SuiteMetrics, TrajectoryResult, derive_allowed_paths,
                                    evaluate_mode, load_trajectories, step_to_event)
-from agentguard.config import load_policy
+from edward.config import load_policy
 
 
 def write_fixture(root: Path, trajectories, answer_rows, mapping_rows):

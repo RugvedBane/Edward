@@ -1,1 +1,1 @@
-from agentguard.kernel import ControlKernel, DecisionAuthority  # noqa: F401
+from edward.kernel import ControlKernel, DecisionAuthority  # noqa: F401

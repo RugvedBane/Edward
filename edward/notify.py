@@ -10,9 +10,9 @@ import urllib.request
 
 
 def notify_stderr(action: str, reason: str, hint: str = "") -> None:
-    banner = f"\n{'=' * 60}\n[AGENTGUARD] {action}: {reason}\n"
+    banner = f"\n{'=' * 60}\n[EDWARD] {action}: {reason}\n"
     if hint:
-        banner += f"[AGENTGUARD] {hint}\n"
+        banner += f"[EDWARD] {hint}\n"
     banner += f"{'=' * 60}\n"
     try:
         print(banner, file=sys.stderr, flush=True)

@@ -1,4 +1,4 @@
-"""Policy packs for agentguard.
+"""Policy packs for edward.
 
 Zero-dependency config: TOML (stdlib tomllib) or JSON, inline presets.
 A policy file may override any subset of fields; unknown keys produce a
@@ -81,7 +81,7 @@ class Policy:
 
 
 def _warn(msg: str) -> None:
-    print(f"[agentguard] config warning: {msg}", file=sys.stderr)
+    print(f"[edward] config warning: {msg}", file=sys.stderr)
 
 
 def _coerce_triggers(raw: dict, origin: str) -> dict:

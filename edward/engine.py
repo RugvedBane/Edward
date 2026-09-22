@@ -123,12 +123,12 @@ class ControlPlane:
         if self.policy.stderr_banner:
             hint = ""
             if decision.action in RESUMABLE_ACTIONS and self.policy.auto_resume_seconds == 0:
-                hint = "Paused. Resume manually: agentguard wrap --continue -- <command>"
+                hint = "Paused. Resume manually: edward wrap --continue -- <command>"
             elif decision.action in TERMINAL_ACTIONS:
                 hint = "Session terminated by control plane (not resumable)."
             notify_stderr(decision.action, decision.reason, hint)
         if self.policy.webhook_url:
-            text = f"[agentguard] {decision.action}: {decision.reason} (source: {decision.source})"
+            text = f"[edward] {decision.action}: {decision.reason} (source: {decision.source})"
             if not notify_webhook(self.policy.webhook_url, text):
                 self.log("webhook notification failed (ignored)")
 

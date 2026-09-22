@@ -1,4 +1,4 @@
-"""agentguard demo: self-running proof that the control plane works.
+"""edward demo: self-running proof that the control plane works.
 
 Replays built-in failure scenarios through the full ControlPlane and
 prints detection + intervention timing. Offline by default; pass

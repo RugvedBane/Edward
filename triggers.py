@@ -1,1 +1,1 @@
-from agentguard.triggers import TriggerResult, check_triggers  # noqa: F401
+from edward.triggers import TriggerResult, check_triggers  # noqa: F401

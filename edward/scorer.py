@@ -1,6 +1,6 @@
 """Semantic scorer client with a circuit breaker.
 
-Wraps JevClient (POST /v1/score against an OpenAI-compatible internal
+Wraps ScorerClient (POST /v1/score against an OpenAI-compatible internal
 scorer). After 2 consecutive failures the breaker opens for 60s: calls
 return None immediately and the control plane runs rule-only. Breaker
 recovers on first success. The scorer is always advisory — every None
@@ -9,7 +9,7 @@ path degrades to the deterministic rule action.
 
 import time
 
-from .jev_client import JevClient
+from .scorer_client import ScorerClient
 
 
 BREAKER_THRESHOLD = 2
@@ -18,7 +18,7 @@ BREAKER_COOLDOWN_SECONDS = 60.0
 
 class Scorer:
     def __init__(self, base_url: str, timeout: float = 10.0):
-        self.client = JevClient(base_url=base_url, timeout=timeout)
+        self.client = ScorerClient(base_url=base_url, timeout=timeout)
         self.fail_streak = 0
         self.open_until = 0.0
         self.total_calls = 0

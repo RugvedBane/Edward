@@ -304,8 +304,8 @@ def run_controller_ablation(n_trials: int = 30) -> dict:
     print("  Jev-gated = triggers fire, then Jev confirms before action")
     print("=" * 80)
 
-    from jev_client import JevClient
-    jev = JevClient()
+    from scorer_client import ScorerClient
+    jev = ScorerClient()
 
     rng = random.Random(ROBUST_SEED)
     results = {}

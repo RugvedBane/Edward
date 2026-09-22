@@ -3,7 +3,7 @@ import urllib.request
 from typing import Optional
 
 
-JEV_API_URL = "http://192.168.2.51:8000"
+SCORER_API_URL = "http://192.168.2.51:8000"
 
 CONTINUE_OPTIONS = {
     "CONTINUE": "The agent is making reasonable progress and should keep going",
@@ -21,8 +21,8 @@ PERMISSION_OPTIONS = {
 MAX_STATE_CHARS = 12_000
 
 
-class JevClient:
-    def __init__(self, base_url: str = JEV_API_URL, timeout: float = 10.0):
+class ScorerClient:
+    def __init__(self, base_url: str = SCORER_API_URL, timeout: float = 10.0):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._request_count = 0

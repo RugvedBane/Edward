@@ -1,4 +1,4 @@
-from agentguard.scenarios import (  # noqa: F401
+from edward.scenarios import (  # noqa: F401
     SCENARIOS,
     TrialResult,
     compute_metrics,

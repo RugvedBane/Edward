@@ -1,4 +1,4 @@
-"""agentguard command line interface.
+"""edward command line interface.
 
 Subcommands:
   wrap     Run an agent command under the control plane (the product entry).
@@ -19,6 +19,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
+from typing import Optional
 
 from .audit import AuditLog, summarize
 from .config import load_policy, policy_toml
@@ -33,7 +34,7 @@ EXIT_PAUSED = 75
 EXIT_TERMINATED = 76
 EXIT_SIGINT = 130
 
-DEFAULT_AUDIT_PATH = os.path.join(os.path.expanduser("~"), ".agentguard", "audit.jsonl")
+DEFAULT_AUDIT_PATH = os.path.join(os.path.expanduser("~"), ".edward", "audit.jsonl")
 PI_VALUE_FLAGS = {"--provider", "--model", "--mode", "--session", "--session-id",
                   "--name", "--thinking", "--models", "--tools", "--exclude-tools",
                   "--session-dir", "--system-prompt", "--append-system-prompt"}
@@ -72,17 +73,34 @@ def _extract_pi_prompt(cmd) -> str:
     return " ".join(parts)
 
 
-def build_pi_command(cmd, session_id: str, resumable: bool, fresh_session: bool) -> list:
+def build_pi_command(cmd, session_id=None, ephemeral=False) -> list:
     base = list(cmd)
     if "--mode" not in base:
         base = [base[0], "--mode", "rpc"] + base[1:]
     if "--no-session" in base:
         base.remove("--no-session")
-    if fresh_session and not resumable:
+    if ephemeral:
         base.append("--no-session")
     elif session_id:
-        base += ["--session-id", f"agentguard-{session_id}"]
+        base += ["--session-id", f"edward-{session_id}"]
     return base
+
+
+def _last_paused_session(audit_path) -> Optional[str]:
+    """Most recent session that ended with the PAUSED exit code."""
+    try:
+        paused = None
+        with open(audit_path, "r", encoding="utf-8", errors="replace") as fh:
+            for raw in fh:
+                try:
+                    rec = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("type") == "session_end" and rec.get("exit_code") == EXIT_PAUSED:
+                    paused = rec.get("session")
+        return paused
+    except OSError:
+        return None
 
 
 class Killer:
@@ -109,23 +127,9 @@ class Killer:
                     pass
 
 
-def _cmd_for_resume(cmd, session_id: str) -> list:
-    if not _is_pi_rpc(cmd):
-        return None
-    base = [c for c in cmd if c != "--no-session"]
-    if "--mode" not in base:
-        base = [base[0], "--mode", "rpc"] + base[1:]
-    if "--session-id" not in base and session_id:
-        base += ["--session-id", f"agentguard-{session_id}"]
-    if "--continue" in base or "-c" in base:
-        return base
-    base += ["--continue"]
-    return base
-
-
 def cmd_wrap(args, cmd) -> int:
     if not cmd:
-        print("wrap requires a command after '--': agentguard wrap -- <agent command>", file=sys.stderr)
+        print("wrap requires a command after '--': edward wrap -- <agent command>", file=sys.stderr)
         return EXIT_ERROR
 
     policy = load_policy(args.policy)
@@ -140,8 +144,17 @@ def cmd_wrap(args, cmd) -> int:
     if args.auto_resume is not None:
         policy.auto_resume_seconds = args.auto_resume
     session_id = uuid.uuid4().hex[:8]
+    if args.continue_session or args.session:
+        sid = args.session or _last_paused_session(args.audit or DEFAULT_AUDIT_PATH)
+        if not sid:
+            print("error: --continue requested but no paused session found in audit log",
+                  file=sys.stderr)
+            return EXIT_ERROR
+        session_id = sid
+        log_line(f"resuming session edward-{session_id}")
 
     audit = AuditLog(None if args.no_audit else (args.audit or DEFAULT_AUDIT_PATH))
+    ephemeral = bool(args.ephemeral)
     scorer = None
     if policy.scorer_enabled:
         scorer = Scorer(policy.scorer_base_url, policy.scorer_timeout_seconds)
@@ -154,24 +167,21 @@ def cmd_wrap(args, cmd) -> int:
 
     resumes = 0
     current_cmd = list(cmd)
-    fresh_session = True
     outcome = None
     while True:
-        run_cmd = current_cmd
+        run_cmd = list(current_cmd)
         if _is_pi_rpc(run_cmd):
-            run_cmd = build_pi_command(run_cmd, session_id, resumable=policy.auto_resume_seconds > 0 or args.continue_session, fresh_session=fresh_session)
+            run_cmd = build_pi_command(run_cmd, session_id=None if ephemeral else session_id,
+                                       ephemeral=ephemeral)
         outcome = _run_under_control(run_cmd, policy, scorer, audit, session_id,
                                      max_seconds=args.max_seconds, is_pi=_is_pi_rpc(run_cmd))
-        fresh_session = False
-        if outcome == EXIT_PAUSED and policy.auto_resume_seconds > 0 and resumes < MAX_RESUMES and _is_pi_rpc(current_cmd):
+        if outcome == EXIT_PAUSED and policy.auto_resume_seconds > 0 \
+                and resumes < MAX_RESUMES and _is_pi_rpc(current_cmd):
             resumes += 1
             log_line(f"auto-resume {resumes}/{MAX_RESUMES} in {policy.auto_resume_seconds}s "
-                     f"(session agentguard-{session_id})")
+                     f"(session edward-{session_id})")
             time.sleep(policy.auto_resume_seconds)
-            resumed = _cmd_for_resume(current_cmd, session_id)
-            if resumed:
-                current_cmd = resumed
-                continue
+            continue
         break
 
     if audit:
@@ -204,7 +214,7 @@ def _handle_decision(plane: ControlPlane, decision, killer, label: str) -> int:
     time.sleep(0.5)
     if decision.action in RESUMABLE_ACTIONS:
         notify_stderr("PAUSED", decision.reason,
-                      f"exit code {EXIT_PAUSED}. Resume: agentguard wrap --continue -- <command>")
+                      f"exit code {EXIT_PAUSED}. Resume: edward wrap --continue -- <command>")
         return EXIT_PAUSED
     notify_stderr("TERMINATED", decision.reason, f"exit code {EXIT_TERMINATED}")
     return EXIT_TERMINATED
@@ -439,7 +449,7 @@ def _eval_stepshield(args) -> int:
                 print("error: contract mode needs a scorer URL", file=sys.stderr)
                 return EXIT_ERROR
             if not scorer_url.endswith(("/v1/score",)):
-                pass  # JevClient appends /v1/score itself
+                pass  # ScorerClient appends /v1/score itself
         try:
             suite = evaluate_mode(trajectories, args.policy or "balanced", mode,
                                   scorer_base_url=scorer_url, log=log_line,
@@ -531,10 +541,10 @@ def cmd_policy_template(args) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="agentguard",
+        prog="edward",
         description="External control plane for AI coding agents: deterministic rules + semantic scorer, audit trail, human-resumable interventions.",
     )
-    parser.add_argument("--version", action="version", version=f"agentguard {__import__('agentguard', fromlist=['__version__']).__version__}")
+    parser.add_argument("--version", action="version", version=f"edward {__import__('edward', fromlist=['__version__']).__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     def add_common(p):
@@ -551,7 +561,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_wrap.add_argument("--no-scorer", action="store_true", help="rule-only mode")
     p_wrap.add_argument("--max-seconds", type=int, help="wall-clock cap for the run")
     p_wrap.add_argument("--auto-resume", type=int, metavar="SECONDS", help="auto-resume paused pi sessions after N seconds (max 5 resumes)")
-    p_wrap.add_argument("--continue", dest="continue_session", action="store_true", help="resume the previous pi session instead of a fresh one")
+    p_wrap.add_argument("--continue", dest="continue_session", action="store_true", help="resume the most recently paused session (session id recovered from audit)")
+    p_wrap.add_argument("--session", metavar="ID", help="explicit edward session id to resume (with --continue)")
+    p_wrap.add_argument("--ephemeral", action="store_true", help="do not persist a resumable pi session (no pause/resume)")
     p_wrap.add_argument("--", dest="cmd", nargs=argparse.REMAINDER, help="agent command to run")
 
     p_demo = sub.add_parser("demo", help="self-running scenario demo")

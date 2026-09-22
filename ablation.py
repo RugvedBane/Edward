@@ -7,7 +7,7 @@ from state_engine import StateEngine
 from triggers import check_triggers
 from benchmark import SCENARIOS, generate_normal_trial, generate_transient_failure_trial, generate_infinite_loop_trial, generate_budget_bleed_trial, generate_dangerous_trial, generate_stall_trial
 
-JEV_API_URL = "https://api.typesafe.ai/v1/systemone"
+SCORER_API_URL = "https://api.typesafe.ai/v1/systemone"
 
 def _get_events(scenario, trial_id, rng):
     func = SCENARIOS[scenario][0]

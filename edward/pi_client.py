@@ -21,8 +21,8 @@ class PiRpcClient:
     def __init__(self, command: Optional[List[str]] = None, cwd: Optional[str] = None,
                  provider: Optional[str] = None, model: Optional[str] = None):
         if command is None:
-            provider = provider or os.environ.get("AGENTGUARD_PI_PROVIDER", "custom-proxy")
-            model = model or os.environ.get("AGENTGUARD_PI_MODEL", "glm-5.3-flash")
+            provider = provider or os.environ.get("EDWARD_PI_PROVIDER", "custom-proxy")
+            model = model or os.environ.get("EDWARD_PI_MODEL", "glm-5.3-flash")
             command = ["pi", "--mode", "rpc", "--no-session", "--provider", provider, "--model", model]
         self.command = [str(c) for c in command]
         self.cwd = cwd
@@ -139,6 +139,6 @@ class PiRpcClient:
                     try:
                         handler(event)
                     except Exception as exc:
-                        print(f"[agentguard] event handler error (ignored): {exc}", file=sys.stderr)
+                        print(f"[edward] event handler error (ignored): {exc}", file=sys.stderr)
         except (OSError, ValueError):
             pass
