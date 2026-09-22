@@ -117,7 +117,8 @@ class AgentState:
 
 DANGEROUS_PATTERNS = [
     re.compile(r"rm\s+-rf"),
-    re.compile(r"\bsudo\b"),
+    # sudo is a signal, but routine service operations are not escalation
+    re.compile(r"\bsudo\b(?!\s+(?:systemctl|service|journalctl)\b)"),
     re.compile(r"drop\s+table", re.IGNORECASE),
     re.compile(r"truncate\s+table", re.IGNORECASE),
     re.compile(r"git\s+push\s+.*--force"),

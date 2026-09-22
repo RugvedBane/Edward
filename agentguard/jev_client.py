@@ -47,6 +47,10 @@ class JevClient:
             PERMISSION_OPTIONS,
         )
 
+    def score(self, state, question: str, options: dict) -> Optional[dict]:
+        """Generic single-decision scoring (public contract-probe entry)."""
+        return self._score(state, question, options)
+
     def _score(self, state, question: str, options: dict) -> Optional[dict]:
         self._request_count += 1
         payload = {

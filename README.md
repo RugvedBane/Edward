@@ -160,6 +160,23 @@ python heldout_eval.py
 python robustness_eval.py
 ```
 
+### External benchmark: StepShield (NeurIPS 2026)
+
+```bash
+git clone --depth 1 https://github.com/glo26/stepshield /tmp/stepshield
+agentguard eval --suite stepshield --data /tmp/stepshield/data --mode rules
+agentguard eval --suite stepshield --data /tmp/stepshield/data --mode contract \
+    --scorer http://192.168.2.51:8000        # needs live scorer endpoint
+```
+
+`rules` = the deterministic v0.1 layer (dangerous-command regex + scope
+violations derived from task constraints). `contract` = the v0.2 Task
+Contract preview: task intent + constraints go into the scorer question,
+and the 4B endpoint judges each state-changing step (OK / VIOLATION /
+UNSURE) with asymmetric confirmation: conf >= 0.9 fires alone, 0.6-0.9
+needs one corroborating violation, a confident OK clears suspicion.
+Metrics are paper-aligned (EIR_k, recall, FPR on clean, per-category).
+
 Pi uses `--mode rpc` for headless operation. The control plane spawns it as a subprocess, reads JSONL events from stdout, and sends control commands (abort, steer) via stdin. No Pi source code is modified.
 
 ## Project structure

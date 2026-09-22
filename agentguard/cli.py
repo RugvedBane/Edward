@@ -18,6 +18,7 @@ import sys
 import threading
 import time
 import uuid
+from pathlib import Path
 
 from .audit import AuditLog, summarize
 from .config import load_policy, policy_toml
@@ -382,6 +383,8 @@ def cmd_demo(args) -> int:
 
 
 def cmd_eval(args) -> int:
+    if getattr(args, "suite", "core") == "stepshield":
+        return _eval_stepshield(args)
     from .evalcmd import eval_policy
     policy = load_policy(args.policy)
     scorer = None
@@ -404,6 +407,56 @@ def cmd_eval(args) -> int:
     ok = verdict(metrics)
     print(f"\nverdict: {'PASS' if ok else 'FAIL'} (policy: {policy.preset}, seed {args.seed})")
     return 0 if ok else 1
+
+
+def _eval_stepshield(args) -> int:
+    from .stepshield import (PUBLISHED_BASELINES, evaluate_mode, format_report,
+                             load_trajectories)
+    data = Path(args.data) if args.data else None
+    if not data or not data.exists():
+        print("error: --data must point to a StepShield data dir "
+              "(containing test_holdout/raw_trajectories.jsonl)", file=sys.stderr)
+        return EXIT_ERROR
+    jsonl = data / "test_holdout" / "raw_trajectories.jsonl"
+    if not jsonl.exists():
+        for candidate in ("test", data):
+            probe = candidate / "raw_trajectories.jsonl" if candidate != data else candidate / "raw_trajectories.jsonl"
+            if probe.exists():
+                jsonl = probe
+                break
+    trajectories = load_trajectories(jsonl, data)
+    if args.limit:
+        trajectories = trajectories[:args.limit]
+    modes = ["rules", "contract"] if args.mode == "both" else [args.mode]
+    print(f"trajectories: {len(trajectories)}  modes: {modes}")
+    for mode in modes:
+        scorer_url = None
+        if mode == "contract":
+            policy = load_policy(args.policy)
+            scorer_url = args.scorer or policy.scorer_base_url
+            scorer_url = scorer_url.rstrip("/")
+            if not scorer_url.startswith("http"):
+                print("error: contract mode needs a scorer URL", file=sys.stderr)
+                return EXIT_ERROR
+            if not scorer_url.endswith(("/v1/score",)):
+                pass  # JevClient appends /v1/score itself
+        try:
+            suite = evaluate_mode(trajectories, args.policy or "balanced", mode,
+                                  scorer_base_url=scorer_url, log=log_line)
+        except (RuntimeError, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        metrics = suite.compute()
+        print(format_report(metrics, mode))
+        if args.show_mechanisms:
+            for r in suite.results:
+                if r.detected:
+                    print(f"  {r.trajectory_id:<28} s_d={r.detection_step} gt={r.ground_truth_step} "
+                          f"{r.mechanism}")
+    print("\npublished baselines (paper, EIR_3/recall/FPR):")
+    for name, b in PUBLISHED_BASELINES.items():
+        print(f"  {name:<28} {b['eir_3']:.2f} / {b['recall']:.1%} / {b['fpr']:.1%}")
+    return EXIT_OK
 
 
 def cmd_audit(args) -> int:
@@ -509,6 +562,13 @@ def build_parser() -> argparse.ArgumentParser:
     add_common(p_eval)
     p_eval.add_argument("--trials", type=int, default=30)
     p_eval.add_argument("--seed", type=int, default=137)
+    p_eval.add_argument("--suite", default="core", choices=["core", "stepshield"],
+                        help="core: built-in scenarios; stepshield: external StepShield bench")
+    p_eval.add_argument("--data", help="StepShield data dir (for --suite stepshield)")
+    p_eval.add_argument("--mode", default="rules", choices=["rules", "contract", "both"],
+                        help="detector mode for stepshield suite")
+    p_eval.add_argument("--limit", type=int, help="evaluate only the first N trajectories")
+    p_eval.add_argument("--show-mechanisms", action="store_true", help="list per-trajectory detections")
 
     p_audit = sub.add_parser("audit", help="inspect audit log")
     p_audit.add_argument("file", nargs="?", help=f"audit JSONL path (default {DEFAULT_AUDIT_PATH})")
