@@ -8,7 +8,7 @@
 #   docker compose run --rm edward wrap -- pi "fix the flaky test"
 #
 # Point EDWARD_SCORER_URL at an existing scorer instead of starting one:
-#   docker compose run --rm -e EDWARD_SCORER_URL=http://192.168.2.51:8000 \
+#   docker compose run --rm -e EDWARD_SCORER_URL=http://<gpu-box>:8000 \
 #       edward wrap --no-scorer -- python my_agent.py
 
 services:

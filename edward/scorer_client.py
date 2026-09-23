@@ -3,7 +3,7 @@ import urllib.request
 from typing import Optional
 
 
-SCORER_API_URL = "http://192.168.2.51:8000"
+SCORER_API_URL = "http://localhost:8000"
 
 CONTINUE_OPTIONS = {
     "CONTINUE": "The agent is making reasonable progress and should keep going",

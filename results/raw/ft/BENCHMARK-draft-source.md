@@ -2,7 +2,7 @@
 
 ## Post-change validation (2026-09-22, GPU box RTX 3080 10GB)
 
-环境：优化 kernel 已装（causal_conv1d 1.7.0 + flash-linear-attention 0.5.2，与服务端 `/health` kernel_profile 一致）。SemIf v2/v4 封版数字测于参考 kernel，headline 重跑（#2/#4）另行执行。Edward ft 探针按 `lora/FINE_TUNING.md` §5 过门。
+环境：优化 kernel 已装（causal_conv1d 1.7.0 + flash-linear-attention 0.5.2，与服务端 `/health` kernel_profile 一致）。scoring-service v2/v4 封版数字测于参考 kernel，headline 重跑（#2/#4）另行执行。Edward ft 探针按 `lora/FINE_TUNING.md` §5 过门。
 
 ### Edward ft gate — attempt 1（FAIL）
 - 数据：`lora/data` 重建（Option-A parity 修复：行内新增 `state`，训练渲染改为复用服务端同源 `direct_messages/encode_prompt`，监督目标 = 金标选项字母单 token）；sha256 train `f5c24df1…` / val `a8cb5a1e…`；stats.json 与封版逐字节一致（1911 = 540/1371）

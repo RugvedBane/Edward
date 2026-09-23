@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 def _default_scorer_url() -> str:
-    return os.environ.get("EDWARD_SCORER_URL", "http://192.168.2.51:8000")
+    return os.environ.get("EDWARD_SCORER_URL", "http://localhost:8000")
 
 
 TRIGGER_DEFAULTS = {
